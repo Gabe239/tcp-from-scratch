@@ -7,10 +7,10 @@ public:
 
     Socket accept();
 
-    Listener(const Listener&)            = delete;
+    Listener(const Listener&) = delete;
     Listener& operator=(const Listener&) = delete;
-    Listener(Listener&&)                 = default;
-    Listener& operator=(Listener&&)      = default;
+    Listener(Listener&&) = default;
+    Listener& operator=(Listener&&) = default;
 
 private:
     Socket socket_;
