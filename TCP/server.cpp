@@ -1,8 +1,8 @@
 #include "../SocketLib/socket.hpp"
 #include "../SocketLib/listener.hpp"
+#include "../SocketLib/thread_pool.hpp"
 #include <iostream>
 #include <cstring>
-#include <thread> 
 
 void handle_client(Socket client) {
     char buf[256];
@@ -23,13 +23,17 @@ void handle_client(Socket client) {
 
 int main() {
     Listener listener(6767);
-    std::cout << "Listening on port 6767...\n";
+    ThreadPool pool(4);
+
+    std::cout << "Listening on port 6767 with 4 workers...\n";
 
     while (true) {
         Socket client = listener.accept();
         std::cout << "Client connected\n";
 
-        std::thread(handle_client, std::move(client)).detach();
+        pool.submit([c = std::move(client)]() mutable {
+            handle_client(std::move(c));
+        });
     }
 
     return 0;
