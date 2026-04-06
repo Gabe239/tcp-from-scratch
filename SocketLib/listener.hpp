@@ -6,6 +6,7 @@ public:
     explicit Listener(int port);
 
     Socket accept();
+    int fd() const { return socket_.fd(); }
 
     Listener(const Listener&) = delete;
     Listener& operator=(const Listener&) = delete;
