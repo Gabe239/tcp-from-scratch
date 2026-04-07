@@ -1,9 +1,33 @@
 #include "../SocketLib/socket.hpp"
 #include "../SocketLib/listener.hpp"
 #include "../SocketLib/event_loop.hpp"
-#include "../SocketLib/async.hpp"
+#include "../SocketLib/coroutine_async.hpp"
 #include <iostream>
 #include <unordered_map>
+
+Task handle_client(EventLoop& loop, int fd,
+                   std::unordered_map<int, Socket>& clients)
+{
+    char buf[256];
+
+    while (true) {
+        ssize_t n = co_await async_recv(loop, fd, buf, sizeof(buf) - 1);
+
+        if (n <= 0) {
+            std::cout << "Client disconnected fd=" << fd << "\n";
+            loop.remove(fd);
+            clients.erase(fd);
+            co_return;
+        }
+
+        buf[n] = '\0';
+        std::cout << "fd=" << fd << " says: " << buf << "\n";
+
+        co_await async_send(loop, fd, buf, n);
+
+        std::cout << "fd=" << fd << " reply sent\n";
+    }
+}
 
 int main() {
     Listener  listener(6767);
@@ -22,25 +46,10 @@ int main() {
 
         clients.emplace(cfd, std::move(client));
 
-        static char buf[256];
-
-        async_recv(loop, cfd, buf, sizeof(buf) - 1, [&, cfd](ssize_t n) {
-            if (n <= 0) {
-                std::cout << "Client disconnected fd=" << cfd << "\n";
-                loop.remove(cfd);
-                clients.erase(cfd);
-                return;
-            }
-
-            std::cout << "fd=" << cfd << " says: " << buf << "\n";
-
-            async_send(loop, cfd, buf, n, [cfd]() {
-                std::cout << "fd=" << cfd << " reply sent\n";
-            });
-        });
+        handle_client(loop, cfd, clients);
     });
 
-    std::cout << "Listening on port 6767 (async)...\n";
+    std::cout << "Listening on port 6767 (coroutines)...\n";
     loop.run();
 
     return 0;
