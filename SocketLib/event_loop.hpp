@@ -5,20 +5,17 @@
 
 class EventLoop {
 public:
-    // Register a callback for when fd has data ready to read.
-    // The callback is called every time epoll says this fd is readable.
+
     void on_readable(int fd, std::function<void()> cb) {
         _poller.add(fd);
         _handlers[fd] = std::move(cb);
     }
 
-    // Remove a fd and its callback — call this when a client disconnects.
     void remove(int fd) {
         _poller.remove(fd);
         _handlers.erase(fd);
     }
 
-    // Start the event loop. Blocks forever, dispatching events to callbacks.
     void run() {
         while (true) {
             auto events = _poller.wait();
@@ -28,7 +25,7 @@ public:
 
                 auto it = _handlers.find(fd);
                 if (it != _handlers.end())
-                    it->second();  // call the registered callback
+                    it->second();
             }
         }
     }
@@ -38,6 +35,6 @@ public:
     }
 
 private:
-    Poller                                        _poller;
+    Poller _poller;
     std::unordered_map<int, std::function<void()>> _handlers;
 };

@@ -1,55 +1,47 @@
 #include "../SocketLib/socket.hpp"
 #include "../SocketLib/listener.hpp"
-#include "../SocketLib/poller.hpp"
+#include "../SocketLib/event_loop.hpp"
 #include <iostream>
 #include <cstring>
 #include <unordered_map>
 
 int main() {
     Listener listener(6767);
-    Poller   poller;
-
-    Poller::set_nonblocking(listener.fd());
-    poller.add(listener.fd());
-
-    std::cout << "Listening on port 6767 (epoll)...\n";
+    EventLoop loop;
 
     std::unordered_map<int, Socket> clients;
 
-    while (true) {
-        auto events = poller.wait();
+    EventLoop::set_nonblocking(listener.fd());
 
-        for (auto& ev : events) {
-            int fd = ev.data.fd;
+    loop.on_readable(listener.fd(), [&]() {
+        Socket client = listener.accept();
+        int    cfd    = client.fd();
 
-            if (fd == listener.fd()) {
-                Socket client = listener.accept();
-                int    cfd    = client.fd();
+        EventLoop::set_nonblocking(cfd);
 
-                Poller::set_nonblocking(cfd);
-                poller.add(cfd);
+        std::cout << "Client connected fd=" << cfd << "\n";
 
-                std::cout << "Client connected fd=" << cfd << "\n";
+        loop.on_readable(cfd, [cfd, &loop, &clients]() {
+            char buf[256];
+            memset(buf, 0, sizeof(buf));
 
-                clients.emplace(cfd, std::move(client));
+            ssize_t n = ::recv(cfd, buf, sizeof(buf) - 1, 0);
+
+            if (n <= 0) {
+                std::cout << "Client disconnected fd=" << cfd << "\n";
+                loop.remove(cfd);
+                clients.erase(cfd);
+            } else {
+                std::cout << "fd=" << cfd << " says: " << buf << "\n";
+                ::send(cfd, buf, n, 0);
             }
-            else {
-                char    buf[256];
-                memset(buf, 0, sizeof(buf));
+        });
 
-                ssize_t n = ::recv(fd, buf, sizeof(buf) - 1, 0);
+        clients.emplace(cfd, std::move(client));
+    });
 
-                if (n <= 0) {
-                    std::cout << "Client disconnected fd=" << fd << "\n";
-                    poller.remove(fd);
-                    clients.erase(fd);
-                } else {
-                    std::cout << "fd=" << fd << " says: " << buf << "\n";
-                    ::send(fd, buf, n, 0);
-                }
-            }
-        }
-    }
+    std::cout << "Listening on port 6767 (event loop)...\n";
+    loop.run();
 
     return 0;
 }
