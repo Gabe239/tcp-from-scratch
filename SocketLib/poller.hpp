@@ -22,9 +22,9 @@ public:
     Poller(const Poller&)            = delete;
     Poller& operator=(const Poller&) = delete;
 
-    void add(int fd) {
+    void add(int fd, uint32_t events = EPOLLIN) {
         epoll_event ev{};
-        ev.events  = EPOLLIN;
+        ev.events  = events;
         ev.data.fd = fd;
 
         if (epoll_ctl(_epoll_fd, EPOLL_CTL_ADD, fd, &ev) == -1)
