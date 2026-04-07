@@ -17,19 +17,16 @@ public:
         _write_handlers[fd] = std::move(cb);
     }
 
-    // Remove both handlers and stop watching fd entirely
     void remove(int fd) {
         _poller.remove(fd);
         _read_handlers.erase(fd);
         _write_handlers.erase(fd);
     }
 
-    // Remove only the readable handler (used by async_recv after firing)
     void remove_readable(int fd) {
         _read_handlers.erase(fd);
     }
 
-    // Remove only the writable handler (used by async_send after firing)
     void remove_writable(int fd) {
         _write_handlers.erase(fd);
     }
